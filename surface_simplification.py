@@ -16,9 +16,9 @@ def calc_Q_for_each_vertex(mesh):
   mesh['Qs'] = []
   for v_idx in range(mesh['n_vertices']):
     Q = np.zeros((4, 4))
-    for f_idx in np.where(mesh['fv_adjacency_matrix'][v_idx])[0]:   # v_adjacency_list -- >>
+    for f_idx in np.where(mesh['fv_adjacency_matrix'][v_idx])[0]:   # TODO (?) v_adjacency_list -- >>
       plane_params = mesh['face_plane_parameters'][f_idx][:, None]
-      Kp = plane_params * plane_params.T                      # -->>
+      Kp = plane_params * plane_params.T                            # TODO -->>
       Q += Kp
     mesh['Qs'].append(Q)
 
@@ -54,7 +54,7 @@ def contract_best_pair(mesh):
 
   # remove v2:
   mesh['vertices'][v2] = [0, 0, 0] # "remove" vertex from mesh
-  if 0:#is_edge:
+  if 0:#is_edge:      # TODO - fix
     all_v2_faces = np.where(mesh['fv_adjacency_matrix'][v2])[0]
     for f in all_v2_faces:
       if v1 in mesh['faces'][f]:
@@ -87,7 +87,7 @@ def simplify_mesh(mesh_orig, simplification_ratio):
   # Select pairs and add them to a heap
   select_vertex_pairs(mesh)
 
-  #while mesh['n_vertices'] > desired_number_of_vertices:
+  #while mesh['n_vertices'] > desired_number_of_vertices:   # TODO ->
   for _ in range(1):
     contract_best_pair(mesh)
 
@@ -96,22 +96,17 @@ def simplify_mesh(mesh_orig, simplification_ratio):
   return mesh
 
 def get_mesh(idx=0):
-  mesh_fns = [r"C:\Users\alon\Downloads\ModelNet40\ModelNet40\car\train\car_0016.off",
-              r"C:\Users\alon\Downloads\ModelNet40\ModelNet40\bottle\train\bottle_0320.off",
-              r"C:\Users\alon\Downloads\ModelNet40\ModelNet40\airplane\train\airplane_0169.off",
-              r"C:\Users\alon\Downloads\ModelNet40\ModelNet40\cone\train\cone_0088.off",
-              r"C:\Users\alon\Downloads\ModelNet40\ModelNet40\person\train\person_0034.off",
-              r"C:\Users\alon\Downloads\ModelNet40\ModelNet40\cup\train\cup_0019.off",
-              r"C:\Users\alon\Downloads\ModelNet40\ModelNet40\bottle\train\bottle_0190.off",
-              'hw2_data/sphere_s0.off',
-              'hw2_data/phands.off'
-                ]
+  mesh_fns = ['meshes/bottle_0320.off',
+              'meshes/car_0016.off'
+              ]
   mesh = io_off_model.read_off(mesh_fns[idx], verbose=True)
   mesh['name'] = os.path.split(mesh_fns[idx])[-1]
   return mesh
 
 if __name__ == '__main__':
-  mesh = get_mesh(6)
+  mesh = get_mesh(0)
   mesh_simplified = simplify_mesh(mesh, 0.5)
-  fn = mesh['name'].split('.')[0] + '_simplified.obj'
+  if not os.path.isdir('output_meshes'):
+    os.makedirs('output_meshes')
+  fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified.obj'
   io_off_model.write_mesh(fn, mesh_simplified)
