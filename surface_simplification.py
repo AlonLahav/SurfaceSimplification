@@ -16,9 +16,9 @@ def calc_Q_for_each_vertex(mesh):
   mesh['Qs'] = []
   for v_idx in range(mesh['n_vertices']):
     Q = np.zeros((4, 4))
-    for f_idx in np.where(mesh['fv_adjacency_matrix'][v_idx])[0]:   # TODO (?) v_adjacency_list -- >>
+    for f_idx in np.where(mesh['fv_adjacency_matrix'][v_idx])[0]:
       plane_params = mesh['face_plane_parameters'][f_idx][:, None]
-      Kp = plane_params * plane_params.T                            # TODO -->>
+      Kp = plane_params * plane_params.T
       Q += Kp
     mesh['Qs'].append(Q)
 
@@ -53,7 +53,7 @@ def contract_best_pair(mesh):
   mesh['vertices'][v1] = new_v1
 
   # remove v2:
-  mesh['vertices'][v2] = [0, 0, 0] # "remove" vertex from mesh
+  mesh['vertices'][v2] = [-1, -1, -1] # "remove" vertex from mesh
   if 0:#is_edge:      # TODO - fix
     all_v2_faces = np.where(mesh['fv_adjacency_matrix'][v2])[0]
     for f in all_v2_faces:
