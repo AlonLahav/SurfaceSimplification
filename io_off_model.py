@@ -75,9 +75,50 @@ def get_simple_mesh(type):
   if type == 'one_triangle':
     points = np.array(([0, 0, 0], [1, 0, 0], [0, 1, .1]))
     polygons = np.array(([0, 1, 2],))
-    mesh = {'vertices': points, 'faces': polygons, 'n_vertices': points.shape[0], 'n_faces': polygons.shape[0]}
+  elif type == 'for_mesh_simplification_1':
+    points = np.array(([4, 4, 0],
+                      [5, 4, 0],
+                      [7, 6, 0],
+                      [9, 5, 0],
+                      [8, 2, 0],
+                      [5, 1, 0],
+                      [3, 1, 0],
+                      [2, 2, 0],
+                      [1, 4, 0],
+                      [2, 6, 0],
+                      [4, 6, 0],
+                      ), dtype=np.float)
+    polygons = np.array(([0, 1, 10],
+                        [0, 5, 1],
+                        [0, 6, 5],
+                        [0, 7, 6],
+                        [0, 8, 7],
+                        [0, 9, 8],
+                        [0, 10, 9],
+                        [1, 2, 10],
+                        [1, 3, 2],
+                        [1, 4, 3],
+                        [1, 5, 4],
+                        ))
+  elif type == 'for_mesh_simplification_2':
+    points = np.array(([5, 2, 0],
+                       [2, 3, 0],
+                       [1, 2, 0],
+                       [1, 1, 0],
+                       [5.2, 2, 0],
+                       [8, 3, 0],
+                       [9, 2, 0],
+                       [8, 1, 0],
+                       ), dtype=np.float)
+    polygons = np.array(([0, 1, 2],
+                         [0, 2, 3],
+                         [4, 6, 5],
+                         [4, 7, 6],
+                         ))
   else:
     raise Exception('Unsupported mesh type')
+
+  mesh = {'vertices': points, 'faces': polygons, 'n_vertices': points.shape[0], 'n_faces': polygons.shape[0]}
 
   return mesh
 

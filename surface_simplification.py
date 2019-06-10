@@ -3,12 +3,14 @@ import copy
 import heapq
 
 import numpy as np
+import pylab as plt
 
 import io_off_model
 import mesh_calc
 
 OPTIMAL_POS = False
 CLOSE_DIST_TH = 0.01
+SAME_V_TH_FOR_PREPROCESS = 0.001
 
 def calc_Q_for_each_vertex(mesh):
   mesh_calc.calc_fv_adjacency_matrix(mesh)
@@ -76,8 +78,21 @@ def clean_mesh_from_removed_items(mesh):
   faces2delete = np.where(np.all(mesh['faces'] == -1, axis=1))[0]
   mesh['faces'] = np.delete(mesh['faces'], faces2delete, 0)
 
+def mesh_preprocess(mesh):
+  # Unite all "same" vertices
+  for v_idx, v in enumerate(mesh['vertices']):
+    d = np.linalg.norm(mesh['vertices'] - v, axis=1)
+    idxs0 = np.where(d < SAME_V_TH_FOR_PREPROCESS)[0][1:]
+    for v_idx_to_update in idxs0:
+      mesh['vertices'][v_idx_to_update] = [np.nan, np.nan, np.nan]
+      idxs1 = np.where(mesh['faces'] == v_idx_to_update)
+      mesh['faces'][idxs1] = v_idx
+
 def simplify_mesh(mesh_orig, simplification_ratio):
   mesh = copy.deepcopy(mesh_orig)
+  return mesh
+  mesh_preprocess(mesh)
+
   mesh['pair_heap'] = []
   desired_number_of_vertices = mesh_orig['n_vertices'] * simplification_ratio
 
@@ -96,15 +111,19 @@ def simplify_mesh(mesh_orig, simplification_ratio):
   return mesh
 
 def get_mesh(idx=0):
-  mesh_fns = ['meshes/bottle_0320.off',
-              'meshes/car_0016.off'
-              ]
-  mesh = io_off_model.read_off(mesh_fns[idx], verbose=True)
-  mesh['name'] = os.path.split(mesh_fns[idx])[-1]
+  if idx == -1:
+    mesh = io_off_model.get_simple_mesh('for_mesh_simplification_2')
+    mesh['name'] = 'simple_2d_mesh_2'
+  else:
+    mesh_fns = ['meshes/bottle_0320.off',
+                'meshes/car_0016.off'
+                ]
+    mesh = io_off_model.read_off(mesh_fns[idx], verbose=True)
+    mesh['name'] = os.path.split(mesh_fns[idx])[-1]
   return mesh
 
 if __name__ == '__main__':
-  mesh = get_mesh(0)
+  mesh = get_mesh(-1)
   mesh_simplified = simplify_mesh(mesh, 0.5)
   if not os.path.isdir('output_meshes'):
     os.makedirs('output_meshes')
