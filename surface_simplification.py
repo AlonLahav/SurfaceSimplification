@@ -9,7 +9,6 @@ import pylab as plt
 import io_off_model
 import mesh_calc
 
-OPTIMAL_POS = False
 CLOSE_DIST_TH = 0.1
 SAME_V_TH_FOR_PREPROCESS = 0.001
 PRINT_COST = False
@@ -28,11 +27,11 @@ def calc_Q_for_each_vertex(mesh):
     mesh['Qs'].append(Q)
 
 def add_pair(mesh, v1, v2, edge_connection):
-  new_v1_ = calc_new_vertex_position(mesh, v1, v2)
+  Q = mesh['Qs'][v1] + mesh['Qs'][v2]
+  new_v1_ = calc_new_vertex_position(mesh, v1, v2, Q)
   if mesh['all_v_in_same_plane']:
     cost = np.linalg.norm(mesh['vertices'][v1] - mesh['vertices'][v2])
   else:
-    Q = mesh['Qs'][v1] + mesh['Qs'][v2]
     new_v1 = np.vstack((new_v1_[:, None], np.ones((1, 1))))
     cost = np.dot(np.dot(new_v1.T, Q), new_v1)[0, 0]
   if PRINT_COST:
@@ -48,11 +47,22 @@ def select_vertex_pairs(mesh):
       if np.linalg.norm(mesh['vertices'][v2] - mesh['vertices'][v1]) < CLOSE_DIST_TH or edge_connection:
         add_pair(mesh, v1, v2, edge_connection)
 
-def calc_new_vertex_position(mesh, v1, v2):
-  if OPTIMAL_POS:
-    raise Exception('TODO')
+def look_for_minimum_cost_on_connected_line():        # TODO
+  return None
+
+def calc_new_vertex_position(mesh, v1, v2, Q):
+  A = Q
+  A[3] = [0, 0, 0, 1]
+  A_can_be_ineverted = np.linalg.matrix_rank(A) == 4  # TODO: bug fix!
+  A_can_be_ineverted = False
+  if A_can_be_ineverted:
+    A_inv = np.linalg.inv(Q)
+    new_v1 = np.dot(A_inv, np.array([[0, 0, 0, 1]]).T)[:3]
+    new_v1 = np.squeeze(new_v1)
   else:
-    new_v1 = (mesh['vertices'][v1] + mesh['vertices'][v2]) / 2
+    new_v1 = look_for_minimum_cost_on_connected_line()
+    if new_v1 is None:
+      new_v1 = (mesh['vertices'][v1] + mesh['vertices'][v2]) / 2
 
   return new_v1
 
@@ -143,7 +153,7 @@ def get_mesh(idx=0):
     mesh['name'] = os.path.split(mesh_fns[idx][0])[-1]
   return mesh, n_vertices_to_merge
 
-def run_one(mesh_id=4):
+def run_one(mesh_id=0):
   mesh, n_vertices_to_merge = get_mesh(mesh_id)
   mesh_simplified = simplify_mesh(mesh, n_vertices_to_merge)
   if not os.path.isdir('output_meshes'):
@@ -158,4 +168,4 @@ def run_all():
     run_one(mesh_id)
 
 if __name__ == '__main__':
-  run_all()
+  run_one()
