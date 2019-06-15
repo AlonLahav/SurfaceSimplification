@@ -73,6 +73,8 @@ def contract_best_pair(mesh):
     cost, v1, v2, is_edge, new_v1 = heapq.heappop(mesh['pair_heap'])
     if v1 not in mesh['forbidden_vertices'] and v2 not in mesh['forbidden_vertices']:
       get_pair = False
+    else:
+      raise Exception('Shold not be here!')
     if len(mesh['pair_heap']) == 0:
       return
   mesh['forbidden_vertices'] += [v1, v2]
@@ -96,8 +98,13 @@ def contract_best_pair(mesh):
     mesh['faces'][idxs, :] = -1
 
   # remove all v1, v2 pairs from heap (forbidden_vertices can be than removed)
+  print(len(mesh['pair_heap']))
+  for pair in mesh['pair_heap']:
+    if pair[1] in [v1, v2] or pair[2] in [v1, v2]:
+      mesh['pair_heap'].remove(pair)
 
   # add new pairs of the new vertex or update the cost of all pairs of v1 (?)
+  pass
 
 def clean_mesh_from_removed_items(mesh):
   faces2delete = np.where(np.all(mesh['faces'] == -1, axis=1))[0]
@@ -134,6 +141,8 @@ def simplify_mesh(mesh_orig, n_vertices_to_merge):
   return mesh
 
 def get_mesh(idx=0):
+  global CLOSE_DIST_TH
+
   if idx == -1:
     mesh = io_off_model.get_simple_mesh('for_mesh_simplification_1')
     mesh['name'] = 'simple_2d_mesh_1'
@@ -142,6 +151,7 @@ def get_mesh(idx=0):
     mesh = io_off_model.get_simple_mesh('for_mesh_simplification_2')
     mesh['name'] = 'simple_2d_mesh_2'
     n_vertices_to_merge = 1
+    CLOSE_DIST_TH = 0.5
   else:
     mesh_fns = [['meshes/bottle_0320.off', 50],
                 ['meshes/person_0067.off', 600],
@@ -168,4 +178,4 @@ def run_all():
     run_one(mesh_id)
 
 if __name__ == '__main__':
-  run_one()
+  run_one(1)
