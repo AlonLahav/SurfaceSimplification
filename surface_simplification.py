@@ -51,7 +51,7 @@ def look_for_minimum_cost_on_connected_line():        # TODO
   return None
 
 def calc_new_vertex_position(mesh, v1, v2, Q):
-  A = Q
+  A = Q.copy()
   A[3] = [0, 0, 0, 1]
   A_can_be_ineverted = np.linalg.matrix_rank(A) == 4  # TODO: bug fix!
   A_can_be_ineverted = False
@@ -74,7 +74,8 @@ def contract_best_pair(mesh):
     if v1 not in mesh['forbidden_vertices'] and v2 not in mesh['forbidden_vertices']:
       get_pair = False
     else:
-      raise Exception('Shold not be here!')
+      pass
+      #raise Exception('Shold not be here!')
     if len(mesh['pair_heap']) == 0:
       return
   mesh['forbidden_vertices'] += [v1, v2]
@@ -98,10 +99,9 @@ def contract_best_pair(mesh):
     mesh['faces'][idxs, :] = -1
 
   # remove all v1, v2 pairs from heap (forbidden_vertices can be than removed)
-  print(len(mesh['pair_heap']))
-  for pair in mesh['pair_heap']:
-    if pair[1] in [v1, v2] or pair[2] in [v1, v2]:
-      mesh['pair_heap'].remove(pair)
+  #for pair in mesh['pair_heap']:
+  #  if pair[1] in [v1, v2] or pair[2] in [v1, v2]:
+  #    mesh['pair_heap'].remove(pair)
 
   # add new pairs of the new vertex or update the cost of all pairs of v1 (?)
   pass
@@ -153,10 +153,10 @@ def get_mesh(idx=0):
     n_vertices_to_merge = 1
     CLOSE_DIST_TH = 0.5
   else:
-    mesh_fns = [['meshes/bottle_0320.off', 50],
-                ['meshes/person_0067.off', 600],
-                ['meshes/airplane_0359.off', 1000],
-                ['meshes/person_0004.off', 1000],
+    mesh_fns = [['meshes/bottle_0320.off',    50],
+                ['meshes/person_0067.off',    600],
+                ['meshes/airplane_0359.off',  1000],
+                ['meshes/person_0004.off',    1000],
                 ]
     n_vertices_to_merge = mesh_fns[idx][1]
     mesh = io_off_model.read_off(mesh_fns[idx][0], verbose=True)
