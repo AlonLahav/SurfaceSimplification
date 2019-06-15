@@ -1,3 +1,4 @@
+import time
 import os
 import copy
 import heapq
@@ -13,17 +14,21 @@ CLOSE_DIST_TH = 0.1
 SAME_V_TH_FOR_PREPROCESS = 0.001
 PRINT_COST = False
 
+def calc_Q_for_vertex(mesh, v_idx):
+  Q = np.zeros((4, 4))
+  for f_idx in np.where(mesh['fv_adjacency_matrix'][v_idx])[0]:
+    plane_params = mesh['face_plane_parameters'][f_idx][:, None]
+    Kp = plane_params * plane_params.T
+    Q += Kp
+  return Q
+
 def calc_Q_for_each_vertex(mesh):
   mesh_calc.calc_fv_adjacency_matrix(mesh)
   mesh_calc.calc_face_plane_parameters(mesh)
   mesh['all_v_in_same_plane'] = np.abs(np.diff(mesh['face_plane_parameters'], axis=0)).sum() == 0
   mesh['Qs'] = []
   for v_idx in range(mesh['n_vertices']):
-    Q = np.zeros((4, 4))
-    for f_idx in np.where(mesh['fv_adjacency_matrix'][v_idx])[0]:
-      plane_params = mesh['face_plane_parameters'][f_idx][:, None]
-      Kp = plane_params * plane_params.T
-      Q += Kp
+    Q = calc_Q_for_vertex(mesh, v_idx)
     mesh['Qs'].append(Q)
 
 def add_pair(mesh, v1, v2, edge_connection):
@@ -41,11 +46,15 @@ def add_pair(mesh, v1, v2, edge_connection):
 def select_vertex_pairs(mesh):
   mesh_calc.calc_v_adjacency_matrix(mesh)
   print('Calculating pairs cost and add to heap')
+  tb = time.time()
   for v1 in tqdm(range(mesh['n_vertices'])):
     for v2 in range(v1 + 1, mesh['n_vertices']):
       edge_connection = mesh['v_adjacency_matrix'][v1, v2]
-      if np.linalg.norm(mesh['vertices'][v2] - mesh['vertices'][v1]) < CLOSE_DIST_TH or edge_connection:
+      vertices_are_very_close = False # np.linalg.norm(mesh['vertices'][v2] - mesh['vertices'][v1]) < CLOSE_DIST_TH
+      if edge_connection or vertices_are_very_close:
         add_pair(mesh, v1, v2, edge_connection)
+  print('time:', time.time() - tb)
+  #exit(0)
 
 def look_for_minimum_cost_on_connected_line():        # TODO
   return None
@@ -56,7 +65,7 @@ def calc_new_vertex_position(mesh, v1, v2, Q):
   A_can_be_ineverted = np.linalg.matrix_rank(A) == 4  # TODO: bug fix!
   A_can_be_ineverted = False
   if A_can_be_ineverted:
-    A_inv = np.linalg.inv(Q)
+    A_inv = np.linalg.inv(A)
     new_v1 = np.dot(A_inv, np.array([[0, 0, 0, 1]]).T)[:3]
     new_v1 = np.squeeze(new_v1)
   else:
@@ -68,43 +77,48 @@ def calc_new_vertex_position(mesh, v1, v2, Q):
 
 def contract_best_pair(mesh):
   # get pair from heap
-  get_pair = True
-  while get_pair:
-    cost, v1, v2, is_edge, new_v1 = heapq.heappop(mesh['pair_heap'])
-    if v1 not in mesh['forbidden_vertices'] and v2 not in mesh['forbidden_vertices']:
-      get_pair = False
-    else:
-      pass
-      #raise Exception('Shold not be here!')
-    if len(mesh['pair_heap']) == 0:
-      return
-  mesh['forbidden_vertices'] += [v1, v2]
+  if len(mesh['pair_heap']) == 0:
+    return
+  cost, v1, v2, is_edge, new_v1 = heapq.heappop(mesh['pair_heap'])
 
   # update v1 - position
   mesh['vertices'][v1] = new_v1
 
   # remove v2:
-  mesh['vertices'][v2] = [-1, -1, -1] # "remove" vertex from mesh
-  if is_edge:      # TODO - fix
+  mesh['vertices'][v2] = [-1, -1, -1]                 # "remove" vertex from mesh (will be finally removed at function: clean_mesh_from_removed_items)
+  if is_edge:
     all_v2_faces = np.where(mesh['fv_adjacency_matrix'][v2])[0]
     for f in all_v2_faces:
       if v1 in mesh['faces'][f]:                      # If the face contains v2 also share vertex with v1:
         mesh['faces'][f] = [-1, -1, -1]               #  "remove" face from mesh.
       else:                                           # else:
         v2_idx = np.where(mesh['faces'][f] == v2)[0]  #  replace v2 with v1
+        #new_v1_nbrs = mesh['faces'][f][mesh['faces'][f] != v2]
         mesh['faces'][f, v2_idx] = v1
+        #mesh['fv_adjacency_matrix'][v1, f] = True
+        #mesh['v_adjacency_matrix'][v1, new_v1_nbrs] = True
   else:
     mesh['faces'][mesh['faces'] == v2] = v1
     idxs = np.where(np.sum(mesh['faces'] == v1, axis=1) > 1)[0]
     mesh['faces'][idxs, :] = -1
 
   # remove all v1, v2 pairs from heap (forbidden_vertices can be than removed)
-  #for pair in mesh['pair_heap']:
-  #  if pair[1] in [v1, v2] or pair[2] in [v1, v2]:
-  #    mesh['pair_heap'].remove(pair)
+  for pair in mesh['pair_heap'][:]:
+    if pair[1] in [v1, v2] or pair[2] in [v1, v2]:
+      mesh['pair_heap'].remove(pair)
 
-  # add new pairs of the new vertex or update the cost of all pairs of v1 (?)
-  pass
+  # Update Q of vertex v1
+  #update_planes_parameters_near_vertex()
+  #calc_Q_for_vertex(mesh, v1)
+
+  # add new pairs of the new vertex
+  v2 = None
+  for v2_ in range(mesh['n_vertices']):
+    if v1 == v2:
+      continue
+    edge_connection = mesh['v_adjacency_matrix'][v1, v2_]
+    #if np.linalg.norm(mesh['vertices'][v2_] - mesh['vertices'][v1]) < CLOSE_DIST_TH or edge_connection:
+    #  add_pair(mesh, v1, v2_, edge_connection)
 
 def clean_mesh_from_removed_items(mesh):
   faces2delete = np.where(np.all(mesh['faces'] == -1, axis=1))[0]
@@ -124,7 +138,6 @@ def simplify_mesh(mesh_orig, n_vertices_to_merge):
   mesh = copy.deepcopy(mesh_orig)
   mesh_preprocess(mesh)
 
-  mesh['forbidden_vertices'] = []
   mesh['pair_heap'] = []
 
   # Calc Q matrix for eack vertex
@@ -178,4 +191,4 @@ def run_all():
     run_one(mesh_id)
 
 if __name__ == '__main__':
-  run_one(1)
+  run_one(2)
