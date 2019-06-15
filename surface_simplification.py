@@ -10,6 +10,7 @@ import pylab as plt
 import io_off_model
 import mesh_calc
 
+ENABLE_NON_EDGE_CONTRACTION = False
 CLOSE_DIST_TH = 0.1
 SAME_V_TH_FOR_PREPROCESS = 0.001
 PRINT_COST = False
@@ -50,11 +51,10 @@ def select_vertex_pairs(mesh):
   for v1 in tqdm(range(mesh['n_vertices'])):
     for v2 in range(v1 + 1, mesh['n_vertices']):
       edge_connection = mesh['v_adjacency_matrix'][v1, v2]
-      vertices_are_very_close = False # np.linalg.norm(mesh['vertices'][v2] - mesh['vertices'][v1]) < CLOSE_DIST_TH
+      vertices_are_very_close = ENABLE_NON_EDGE_CONTRACTION and np.linalg.norm(mesh['vertices'][v2] - mesh['vertices'][v1]) < CLOSE_DIST_TH
       if edge_connection or vertices_are_very_close:
         add_pair(mesh, v1, v2, edge_connection)
   print('time:', time.time() - tb)
-  #exit(0)
 
 def look_for_minimum_cost_on_connected_line():        # TODO
   return None
@@ -109,7 +109,7 @@ def contract_best_pair(mesh):
 
   # Update Q of vertex v1
   #update_planes_parameters_near_vertex()
-  #calc_Q_for_vertex(mesh, v1)
+  calc_Q_for_vertex(mesh, v1)
 
   # add new pairs of the new vertex
   v2 = None
@@ -170,6 +170,7 @@ def get_mesh(idx=0):
                 ['meshes/person_0067.off',    600],
                 ['meshes/airplane_0359.off',  1000],
                 ['meshes/person_0004.off',    1000],
+                ['meshes/bunny2.off',         4000],
                 ]
     n_vertices_to_merge = mesh_fns[idx][1]
     mesh = io_off_model.read_off(mesh_fns[idx][0], verbose=True)
@@ -191,4 +192,5 @@ def run_all():
     run_one(mesh_id)
 
 if __name__ == '__main__':
-  run_one(2)
+  #run_all()
+  run_one(4)
