@@ -21,7 +21,10 @@ def write_off(fn, points, polygons, colors=None):
     polygons_ = []
     if colors is None:
       for p in polygons:
-        polygons_.append([len(p)] + p)
+        p_ = p
+        if type(p) is type(np.array((0))):
+          p_ = p.tolist()
+        polygons_.append([len(p)] + p_)
     else:
       for p, c in zip(polygons, colors):
         polygons_.append([len(p)] + p + c)

@@ -107,9 +107,16 @@ def contract_best_pair(mesh):
     if pair[1] in [v1, v2] or pair[2] in [v1, v2]:
       mesh['pair_heap'].remove(pair)
 
+  # Check if a face have 2 same vertex indecis
+  if 0:
+    idxs = np.where(mesh['faces'][:, 0] != -1)[0]
+    to_check = mesh['faces'][idxs]
+    if np.any(np.diff(np.sort(to_check, axis=1), axis=1) == 0):
+      raise Exception('Bug: face found with 2 idintical vertex indices!')
+
   # Update Q of vertex v1
   #update_planes_parameters_near_vertex()
-  calc_Q_for_vertex(mesh, v1)
+  #calc_Q_for_vertex(mesh, v1)
 
   # add new pairs of the new vertex
   v2 = None
@@ -182,8 +189,8 @@ def run_one(mesh_id=0):
   mesh_simplified = simplify_mesh(mesh, n_vertices_to_merge)
   if not os.path.isdir('output_meshes'):
     os.makedirs('output_meshes')
-  fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified.obj'
-  io_off_model.write_mesh(fn, mesh_simplified)
+  fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified.off'
+  io_off_model.write_off_mesh(fn, mesh_simplified)
   fn = 'output_meshes/' + mesh['name'].split('.')[0] + '.obj'
   io_off_model.write_mesh(fn, mesh)
 
@@ -193,4 +200,4 @@ def run_all():
 
 if __name__ == '__main__':
   #run_all()
-  run_one(4)
+  run_one(0)
