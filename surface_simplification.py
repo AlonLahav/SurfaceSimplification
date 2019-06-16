@@ -10,12 +10,14 @@ import pylab as plt
 import io_off_model
 import mesh_calc
 
+# Some flags / constants to define the simplification
 ENABLE_NON_EDGE_CONTRACTION = False
 CLOSE_DIST_TH = 0.1
 SAME_V_TH_FOR_PREPROCESS = 0.001
 PRINT_COST = False
 
 def calc_Q_for_vertex(mesh, v_idx):
+  # Calculate K & Q according to eq. (2)
   Q = np.zeros((4, 4))
   for f_idx in np.where(mesh['fv_adjacency_matrix'][v_idx])[0]:
     plane_params = mesh['face_plane_parameters'][f_idx][:, None]
@@ -24,6 +26,7 @@ def calc_Q_for_vertex(mesh, v_idx):
   return Q
 
 def calc_Q_for_each_vertex(mesh):
+  # Prepare some mesh paramenters and run on all vertices to call Q calculation
   mesh_calc.calc_fv_adjacency_matrix(mesh)
   mesh_calc.calc_face_plane_parameters(mesh)
   mesh['all_v_in_same_plane'] = np.abs(np.diff(mesh['face_plane_parameters'], axis=0)).sum() == 0
@@ -33,6 +36,7 @@ def calc_Q_for_each_vertex(mesh):
     mesh['Qs'].append(Q)
 
 def add_pair(mesh, v1, v2, edge_connection):
+  # Add pair of indices to the heap, keys by the cost
   Q = mesh['Qs'][v1] + mesh['Qs'][v2]
   new_v1_ = calc_new_vertex_position(mesh, v1, v2, Q)
   if mesh['all_v_in_same_plane']:
@@ -60,8 +64,12 @@ def look_for_minimum_cost_on_connected_line():        # TODO
   return None
 
 def calc_new_vertex_position(mesh, v1, v2, Q):
+  # Calculating the new vetrex position, given 2 vertices (paragraph 4.):
+  # 1. If A (to be defined below) can be inverted, use it
+  # 2. If this matrix is not invertible, attempt to find the optimal vertex along the segment V1 and V2
+  # 3. The new vertex will be at the midpoint
   A = Q.copy()
-  A[3] = [0, 0, 0, 1]
+  A[3] = [0, 0, 0, 1]                                 # Defined by eq. (1)
   A_can_be_ineverted = np.linalg.matrix_rank(A) == 4  # TODO: bug fix!
   A_can_be_ineverted = False
   if A_can_be_ineverted:
@@ -76,6 +84,8 @@ def calc_new_vertex_position(mesh, v1, v2, Q):
   return new_v1
 
 def contract_best_pair(mesh):
+  # Get the best pair of indices from heap, and contract them to a single vertex
+
   # get pair from heap
   if len(mesh['pair_heap']) == 0:
     return
@@ -86,6 +96,7 @@ def contract_best_pair(mesh):
 
   # remove v2:
   mesh['vertices'][v2] = [-1, -1, -1]                 # "remove" vertex from mesh (will be finally removed at function: clean_mesh_from_removed_items)
+  mesh['v_adjacency_matrix'][v1, v2] = False
   if is_edge:
     all_v2_faces = np.where(mesh['fv_adjacency_matrix'][v2])[0]
     for f in all_v2_faces:
@@ -115,7 +126,7 @@ def contract_best_pair(mesh):
       raise Exception('Bug: face found with 2 idintical vertex indices!')
 
   # Update Q of vertex v1
-  #update_planes_parameters_near_vertex()
+  #update_planes_parameters_near_vertex()         --> TODO
   #calc_Q_for_vertex(mesh, v1)
 
   # add new pairs of the new vertex
@@ -124,15 +135,19 @@ def contract_best_pair(mesh):
     if v1 == v2:
       continue
     edge_connection = mesh['v_adjacency_matrix'][v1, v2_]
-    #if np.linalg.norm(mesh['vertices'][v2_] - mesh['vertices'][v1]) < CLOSE_DIST_TH or edge_connection:
+    vertices_are_very_close = ENABLE_NON_EDGE_CONTRACTION and np.linalg.norm(mesh['vertices'][v2] - mesh['vertices'][v1]) < CLOSE_DIST_TH
+    #if edge_connection or vertices_are_very_close:     #  -->> BUG!
     #  add_pair(mesh, v1, v2_, edge_connection)
 
 def clean_mesh_from_removed_items(mesh):
+  # Clean up the mesh from faces
+  # Note that unused vertices are still there!
+  # To be fixed later (not so important).
   faces2delete = np.where(np.all(mesh['faces'] == -1, axis=1))[0]
   mesh['faces'] = np.delete(mesh['faces'], faces2delete, 0)
 
 def mesh_preprocess(mesh):
-  # Unite all "same" vertices
+  # Unite all "same" vertices - ones that are very close
   for v_idx, v in enumerate(mesh['vertices']):
     d = np.linalg.norm(mesh['vertices'] - v, axis=1)
     idxs0 = np.where(d < SAME_V_TH_FOR_PREPROCESS)[0][1:]
@@ -153,9 +168,11 @@ def simplify_mesh(mesh_orig, n_vertices_to_merge):
   # Select pairs and add them to a heap
   select_vertex_pairs(mesh)
 
+  # Take and contract pairs
   for _ in range(int(n_vertices_to_merge)):
     contract_best_pair(mesh)
 
+  # Remove old unused faces
   clean_mesh_from_removed_items(mesh)
 
   return mesh
@@ -173,7 +190,7 @@ def get_mesh(idx=0):
     n_vertices_to_merge = 1
     CLOSE_DIST_TH = 0.5
   else:
-    mesh_fns = [['meshes/bottle_0320.off',    50],
+    mesh_fns = [['meshes/bottle_0320.off',    30],    # 50
                 ['meshes/person_0067.off',    600],
                 ['meshes/airplane_0359.off',  1000],
                 ['meshes/person_0004.off',    1000],
@@ -199,5 +216,5 @@ def run_all():
     run_one(mesh_id)
 
 if __name__ == '__main__':
-  #run_all()
-  run_one(0)
+  run_all()
+  #run_one(0)
