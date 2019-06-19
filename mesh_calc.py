@@ -17,17 +17,20 @@ def calc_v_adjacency_matrix(mesh, verbose=False):
     for i, j in zip([0, 1, 1, 2, 2, 0], [1, 0, 2, 1, 0, 2]):
       mesh['v_adjacency_matrix'][face[i], face[j]] = True
 
-def calc_fv_adjacency_matrix(mesh, verbose=False):
-  if 'fv_adjacency_matrix' in mesh.keys():
+def calc_vf_adjacency_matrix(mesh, verbose=False):
+  # Usage:
+  #   vf_adjacency_matrix[vertex_index, face_index],
+  #   if True, vertex_index is in mesh['faces'][face_index]
+  if 'vf_adjacency_matrix' in mesh.keys():
     return
   if verbose:
-    print('calc_fv_adjacency_matrix')
+    print('calc_vf_adjacency_matrix')
   n_vertices = mesh['vertices'].shape[0]
   n_faces = mesh['faces'].shape[0]
-  mesh['fv_adjacency_matrix'] = np.zeros((n_vertices, n_faces), dtype=np.bool)
+  mesh['vf_adjacency_matrix'] = np.zeros((n_vertices, n_faces), dtype=np.bool)
   for f_ind in range(mesh['faces'].shape[0]):
     face = mesh['faces'][f_ind]
-    mesh['fv_adjacency_matrix'][face, f_ind] = True
+    mesh['vf_adjacency_matrix'][face, f_ind] = True
 
 def calc_face_normals(mesh, verbose=False):
   if 'face_normals' in mesh.keys():
@@ -79,11 +82,11 @@ def calc_vertices_area(mesh, verbose=False):
     print('calc_vertices_area')
   if 'faces_area' not in mesh.keys():
     calc_triangles_area(mesh)
-  if 'fv_adjacency_matrix' not in mesh.keys():
-    calc_fv_adjacency_matrix(mesh)
+  if 'vf_adjacency_matrix' not in mesh.keys():
+    calc_vf_adjacency_matrix(mesh)
   mesh['vertices_area'] = np.zeros((mesh['vertices'].shape[0]))
   for i in range(mesh['vertices_area'].shape[0]):
-    areas = mesh['faces_area'][mesh['fv_adjacency_matrix'][i]]
+    areas = mesh['faces_area'][mesh['vf_adjacency_matrix'][i]]
     mesh['vertices_area'][i] = np.sum(areas) / 3
   return mesh['vertices_area']
 
@@ -223,7 +226,7 @@ if __name__ == '__main__':
   mesh = io_off_model.read_off(mesh_fn, verbose=True)
 
   if 0: # HW2, Ex. 2, part I
-    calc_fv_adjacency_matrix(mesh)
+    calc_vf_adjacency_matrix(mesh)
   if 0: # HW2, Ex. 4, part I
     t_area = calc_triangles_area(mesh)
     print('Surface area: ', t_area.sum())

@@ -15,11 +15,13 @@ ENABLE_NON_EDGE_CONTRACTION = False
 CLOSE_DIST_TH = 0.1
 SAME_V_TH_FOR_PREPROCESS = 0.001
 PRINT_COST = False
+SELF_CHECKING = True
+np.set_printoptions(linewidth=200)
 
 def calc_Q_for_vertex(mesh, v_idx):
   # Calculate K & Q according to eq. (2)
   Q = np.zeros((4, 4))
-  for f_idx in np.where(mesh['fv_adjacency_matrix'][v_idx])[0]:
+  for f_idx in np.where(mesh['vf_adjacency_matrix'][v_idx])[0]:
     plane_params = mesh['face_plane_parameters'][f_idx][:, None]
     Kp = plane_params * plane_params.T
     Q += Kp
@@ -27,7 +29,7 @@ def calc_Q_for_vertex(mesh, v_idx):
 
 def calc_Q_for_each_vertex(mesh):
   # Prepare some mesh paramenters and run on all vertices to call Q calculation
-  mesh_calc.calc_fv_adjacency_matrix(mesh)
+  mesh_calc.calc_vf_adjacency_matrix(mesh)
   mesh_calc.calc_face_plane_parameters(mesh)
   mesh['all_v_in_same_plane'] = np.abs(np.diff(mesh['face_plane_parameters'], axis=0)).sum() == 0
   mesh['Qs'] = []
@@ -96,22 +98,34 @@ def contract_best_pair(mesh):
 
   # remove v2:
   mesh['vertices'][v2] = [-1, -1, -1]                 # "remove" vertex from mesh (will be finally removed at function: clean_mesh_from_removed_items)
-  mesh['v_adjacency_matrix'][v1, v2] = False
+  mesh['v_adjacency_matrix'][v1, v2] = mesh['v_adjacency_matrix'][v2, v1] = False
   if is_edge:
-    all_v2_faces = np.where(mesh['fv_adjacency_matrix'][v2])[0]
+    all_v2_faces = np.where(mesh['vf_adjacency_matrix'][v2])[0]
     for f in all_v2_faces:
       if v1 in mesh['faces'][f]:                      # If the face contains v2 also share vertex with v1:
         mesh['faces'][f] = [-1, -1, -1]               #  "remove" face from mesh.
+        mesh['vf_adjacency_matrix'][v2, v1] = False
       else:                                           # else:
         v2_idx = np.where(mesh['faces'][f] == v2)[0]  #  replace v2 with v1
-        #new_v1_nbrs = mesh['faces'][f][mesh['faces'][f] != v2]
+        new_v1_nbrs = mesh['faces'][f][mesh['faces'][f] != v2]
         mesh['faces'][f, v2_idx] = v1
-        #mesh['fv_adjacency_matrix'][v1, f] = True
-        #mesh['v_adjacency_matrix'][v1, new_v1_nbrs] = True
+        mesh['vf_adjacency_matrix'][v1, f] = True
+        mesh['v_adjacency_matrix'][v1, new_v1_nbrs] = True
   else:
     mesh['faces'][mesh['faces'] == v2] = v1
     idxs = np.where(np.sum(mesh['faces'] == v1, axis=1) > 1)[0]
     mesh['faces'][idxs, :] = -1
+
+  if SELF_CHECKING:         # Check that all adjacent matrices coherent to faces list
+    for f_idx, f in enumerate(mesh['faces']):
+      if f[0] == -1:
+        continue
+      for v1_, v2_ in [(f[0], f[1]), (f[0], f[2]), (f[1], f[2])]:
+        if mesh['v_adjacency_matrix'][v1_, v2_] == False:
+          raise Exception('Bad v_adjacency_matrix')
+      for v_ in f:
+        if mesh['vf_adjacency_matrix'][v_, f_idx] == False:
+          raise Exception('Bad vf_adjacency_matrix')
 
   # remove all v1, v2 pairs from heap (forbidden_vertices can be than removed)
   for pair in mesh['pair_heap'][:]:
@@ -119,7 +133,7 @@ def contract_best_pair(mesh):
       mesh['pair_heap'].remove(pair)
 
   # Check if a face have 2 same vertex indecis
-  if 0:
+  if SELF_CHECKING:
     idxs = np.where(mesh['faces'][:, 0] != -1)[0]
     to_check = mesh['faces'][idxs]
     if np.any(np.diff(np.sort(to_check, axis=1), axis=1) == 0):
@@ -216,5 +230,5 @@ def run_all():
     run_one(mesh_id)
 
 if __name__ == '__main__':
-  run_all()
-  #run_one(0)
+  #run_all()
+  run_one(-1)
