@@ -6,6 +6,7 @@ import heapq
 from tqdm import tqdm
 import numpy as np
 import pylab as plt
+import trimesh
 
 import io_off_model
 import mesh_calc
@@ -18,6 +19,7 @@ SAME_V_TH_FOR_PREPROCESS = 0.001
 PRINT_COST = False
 SELF_CHECKING = False # True / False
 np.set_printoptions(linewidth=200)
+ALLOW_CONTRACT_NON_MANIFOLD_VERTICES = True
 
 def calc_Q_for_vertex(mesh, v_idx):
   # Calculate K & Q according to eq. (2)
@@ -37,6 +39,11 @@ def calc_Q_for_each_vertex(mesh):
     mesh['Qs'].append(Q)
 
 def add_pair(mesh, v1, v2, edge_connection):
+  # Do not use vertices on bound or non-manifold ones
+  if not ALLOW_CONTRACT_NON_MANIFOLD_VERTICES:
+    if not mesh['is_watertight'] and (v1 in mesh['non_maniford_vertices'] or v2 in mesh['non_maniford_vertices']):
+      return
+
   # Add pair of indices to the heap, keys by the cost
   Q = mesh['Qs'][v1] + mesh['Qs'][v2]
   new_v1_ = calc_new_vertex_position(mesh, v1, v2, Q)
@@ -178,11 +185,19 @@ def check_mesh(mesh):
 
 
 def clean_mesh_from_removed_items(mesh):
-  # Clean up the mesh from faces
-  # Note that unused vertices are still there!
-  # To be fixed later (not so important).
+  # Remove Faces
   faces2delete = np.where(np.all(mesh['faces'] == -1, axis=1))[0]
   mesh['faces'] = np.delete(mesh['faces'], faces2delete, 0)
+
+  # Remove vertices and fix face indices
+  is_to_remove = (mesh['vertices'][:, 0] == -1) + np.isnan(mesh['vertices'][:, 0])
+  v_to_remove = np.where(is_to_remove)[0]
+  v_to_keep   = np.where(is_to_remove == 0)[0]
+  mesh['vertices'] = mesh['vertices'][v_to_keep, :]
+  for v_idx in v_to_remove[::-1]:
+    f_to_update = np.where(mesh['faces'] > v_idx)
+    mesh['faces'][f_to_update] -= 1
+
 
 def mesh_preprocess(mesh):
   # Unite all "same" vertices - ones that are very close
@@ -201,13 +216,18 @@ def mesh_preprocess(mesh):
     dup_faces = np.where(np.all(mesh['faces'] == f, axis=1))[0][1:]
     mesh['faces'][dup_faces, :] = -1
 
+  # Check if model is watertight
+  mesh_calc.add_edges_to_mesh(mesh)
+  print(mesh['name'], 'is water-tight:', mesh['is_watertight'])
+
   # Prepare mesh
   mesh_calc.calc_v_adjacency_matrix(mesh)
   mesh_calc.calc_vf_adjacency_matrix(mesh)
   mesh_calc.calc_face_plane_parameters(mesh)
 
   # Make sure the mesh is good now
-  #check_mesh(mesh)
+  if SELF_CHECKING:
+    check_mesh(mesh)
 
 def simplify_mesh(mesh_orig, n_vertices_to_merge):
   mesh = copy.deepcopy(mesh_orig)
@@ -222,7 +242,8 @@ def simplify_mesh(mesh_orig, n_vertices_to_merge):
   select_vertex_pairs(mesh)
 
   # Take and contract pairs
-  for _ in range(int(n_vertices_to_merge)):
+  print('Simplifing Mesh')
+  for _ in tqdm(range(n_vertices_to_merge)):
     contract_best_pair(mesh)
 
   # Remove old unused faces
@@ -248,10 +269,13 @@ def get_mesh(idx=0):
                 ['meshes/airplane_0359.off',  1000],
                 ['meshes/person_0004.off',    1000],
                 ['meshes/bunny2.off',         4000],
+                ['meshes/cat.off',            6000],
+                ['meshes/phands.off',         2000],
                 ]
     n_vertices_to_merge = mesh_fns[idx][1]
     mesh = io_off_model.read_off(mesh_fns[idx][0], verbose=True)
     mesh['name'] = os.path.split(mesh_fns[idx][0])[-1]
+
   return mesh, n_vertices_to_merge
 
 def run_one(mesh_id=0):
@@ -261,13 +285,18 @@ def run_one(mesh_id=0):
     os.makedirs('output_meshes')
   fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified.off'
   io_off_model.write_off_mesh(fn, mesh_simplified)
+  fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified.obj'
+  io_off_model.write_off_mesh(fn, mesh_simplified)
   fn = 'output_meshes/' + mesh['name'].split('.')[0] + '.obj'
   io_off_model.write_mesh(fn, mesh)
 
 def run_all():
-  for mesh_id in [-2, -1, 0, 1, 2, 3, 4]:
+  simple_models = [-2, -1]
+  watertight_models = [4, 5, 6]
+  non_watertight_models = [0, 1, 2, 3]
+  for mesh_id in non_watertight_models:
     run_one(mesh_id)
 
 if __name__ == '__main__':
-  run_all()
-  #run_one(1)
+  #run_all()
+  run_one(0)

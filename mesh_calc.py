@@ -104,7 +104,12 @@ def add_edges_to_mesh(mesh):
       edges[e_] += 1
       edges2face[e_].append(f_index)
   mesh['edges'] = np.array(list(edges.keys()))
-  mesh['n_boundary_edges'] = np.sum(np.array(list(edges.values())) == 1)
+  n_faces_for_edge = np.array(list(edges.values()))
+  mesh['n_boundary_edges'] = np.sum(n_faces_for_edge == 1)
+  mesh['is_watertight'] = np.all(n_faces_for_edge == 2)
+  non_maniford_edges_idxs = np.where(n_faces_for_edge != 2)[0]
+  non_maniford_edges = mesh['edges'][non_maniford_edges_idxs]
+  mesh['non_maniford_vertices'] = np.unique(non_maniford_edges)
 
   mesh['faces_graph'] = {f:[] for f in range(mesh['n_faces'])}
   for adj_faces in edges2face.values():
