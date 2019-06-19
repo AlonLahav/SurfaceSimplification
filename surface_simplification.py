@@ -20,6 +20,7 @@ PRINT_COST = False
 SELF_CHECKING = False # True / False
 np.set_printoptions(linewidth=200)
 ALLOW_CONTRACT_NON_MANIFOLD_VERTICES = True
+MINIMUM_NUMBER_OF_FACES = 200
 
 def calc_Q_for_vertex(mesh, v_idx):
   # Calculate K & Q according to eq. (2)
@@ -128,6 +129,8 @@ def contract_best_pair(mesh):
     mesh['faces'][mesh['faces'] == v2] = v1
     idxs = np.where(np.sum(mesh['faces'] == v1, axis=1) > 1)[0]
     mesh['faces'][idxs, :] = -1
+
+  mesh['n_faces'] = (mesh['faces'][:, 0] != -1).sum()
 
   if SELF_CHECKING:
     check_mesh(mesh)
@@ -245,6 +248,8 @@ def simplify_mesh(mesh_orig, n_vertices_to_merge):
   print('Simplifing Mesh')
   for _ in tqdm(range(n_vertices_to_merge)):
     contract_best_pair(mesh)
+    if mesh['n_faces'] <= MINIMUM_NUMBER_OF_FACES:
+      break
 
   # Remove old unused faces
   clean_mesh_from_removed_items(mesh)
@@ -278,17 +283,23 @@ def get_mesh(idx=0):
 
   return mesh, n_vertices_to_merge
 
-def run_one(mesh_id=0):
-  mesh, n_vertices_to_merge = get_mesh(mesh_id)
+def run_one(mesh_id=0, n_vertices_to_merge=None):
+  mesh, n_vertices_to_merge_ = get_mesh(mesh_id)
+  if n_vertices_to_merge is None:
+    n_vertices_to_merge = n_vertices_to_merge_
   mesh_simplified = simplify_mesh(mesh, n_vertices_to_merge)
   if not os.path.isdir('output_meshes'):
     os.makedirs('output_meshes')
-  fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified.off'
+  fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified_' + str(n_vertices_to_merge) + '.off'
   io_off_model.write_off_mesh(fn, mesh_simplified)
-  fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified.obj'
-  io_off_model.write_off_mesh(fn, mesh_simplified)
+  #fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified.obj'
+  #io_off_model.write_off_mesh(fn, mesh_simplified)
   fn = 'output_meshes/' + mesh['name'].split('.')[0] + '.obj'
   io_off_model.write_mesh(fn, mesh)
+
+def run_bunny_many():
+  for n_vertices_to_merge in [4000, 6000, 6100, 6200]:
+    run_one(mesh_id=4, n_vertices_to_merge=n_vertices_to_merge)
 
 def run_all():
   simple_models = [-2, -1]
@@ -299,4 +310,5 @@ def run_all():
 
 if __name__ == '__main__':
   #run_all()
-  run_one(0)
+  run_bunny_many()
+  #run_one(0)
