@@ -217,7 +217,7 @@ def mesh_preprocess(mesh):
       idxs1 = np.where(mesh['faces'] == v_idx_to_update)
       mesh['faces'][idxs1] = v_idx
 
-  # Remove suplicated faces
+  # Remove duplicated faces
   for f in mesh['faces']:
     if f[0] == -1:
       continue
