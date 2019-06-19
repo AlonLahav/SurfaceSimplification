@@ -98,46 +98,58 @@ def contract_best_pair(mesh):
 
   # remove v2:
   mesh['vertices'][v2] = [-1, -1, -1]                 # "remove" vertex from mesh (will be finally removed at function: clean_mesh_from_removed_items)
-  mesh['v_adjacency_matrix'][v1, v2] = mesh['v_adjacency_matrix'][v2, v1] = False
+  mesh['v_adjacency_matrix'][v2, :] = False
+  mesh['v_adjacency_matrix'][:, v2] = False
   if is_edge:
     all_v2_faces = np.where(mesh['vf_adjacency_matrix'][v2])[0]
+    mesh['vf_adjacency_matrix'][v2, :] = False
     for f in all_v2_faces:
       if v1 in mesh['faces'][f]:                      # If the face contains v2 also share vertex with v1:
         mesh['faces'][f] = [-1, -1, -1]               #  "remove" face from mesh.
-        mesh['vf_adjacency_matrix'][v2, v1] = False
+        mesh['vf_adjacency_matrix'][:, f] = False
       else:                                           # else:
         v2_idx = np.where(mesh['faces'][f] == v2)[0]  #  replace v2 with v1
         new_v1_nbrs = mesh['faces'][f][mesh['faces'][f] != v2]
         mesh['faces'][f, v2_idx] = v1
         mesh['vf_adjacency_matrix'][v1, f] = True
         mesh['v_adjacency_matrix'][v1, new_v1_nbrs] = True
+        mesh['v_adjacency_matrix'][new_v1_nbrs, v1] = True
   else:
     mesh['faces'][mesh['faces'] == v2] = v1
     idxs = np.where(np.sum(mesh['faces'] == v1, axis=1) > 1)[0]
     mesh['faces'][idxs, :] = -1
 
-  if SELF_CHECKING:         # Check that all adjacent matrices coherent to faces list
+  if SELF_CHECKING:
+    # Check that adjacent matrices coherent to faces list
+    tmp_v_adjacency_matrix = mesh['v_adjacency_matrix'].copy()
+    tmp_vf_adjacency_matrix = mesh['vf_adjacency_matrix'].copy()
     for f_idx, f in enumerate(mesh['faces']):
       if f[0] == -1:
         continue
       for v1_, v2_ in [(f[0], f[1]), (f[0], f[2]), (f[1], f[2])]:
-        if mesh['v_adjacency_matrix'][v1_, v2_] == False:
+        tmp_v_adjacency_matrix[v1_, v2_] = False
+        tmp_v_adjacency_matrix[v2_, v1_] = False
+        if mesh['v_adjacency_matrix'][v1_, v2_] == False or mesh['v_adjacency_matrix'][v2_, v1_] == False:
           raise Exception('Bad v_adjacency_matrix')
       for v_ in f:
+        tmp_vf_adjacency_matrix[v_, f_idx] = False
         if mesh['vf_adjacency_matrix'][v_, f_idx] == False:
           raise Exception('Bad vf_adjacency_matrix')
+    if np.any(tmp_vf_adjacency_matrix):
+      raise Exception('vf_adjacency_matrix has wrong True elements')
+    #if np.any(tmp_v_adjacency_matrix):
+    #  raise Exception('v_adjacency_matrix has wrong True elements')
+
+    # Check if a face have 2 same vertex indices
+    idxs = np.where(mesh['faces'][:, 0] != -1)[0]
+    to_check = mesh['faces'][idxs]
+    if np.any(np.diff(np.sort(to_check, axis=1), axis=1) == 0):
+      raise Exception('Bug: face found with 2 idintical vertex indices!')
 
   # remove all v1, v2 pairs from heap (forbidden_vertices can be than removed)
   for pair in mesh['pair_heap'][:]:
     if pair[1] in [v1, v2] or pair[2] in [v1, v2]:
       mesh['pair_heap'].remove(pair)
-
-  # Check if a face have 2 same vertex indecis
-  if SELF_CHECKING:
-    idxs = np.where(mesh['faces'][:, 0] != -1)[0]
-    to_check = mesh['faces'][idxs]
-    if np.any(np.diff(np.sort(to_check, axis=1), axis=1) == 0):
-      raise Exception('Bug: face found with 2 idintical vertex indices!')
 
   # Update Q of vertex v1
   #update_planes_parameters_near_vertex()         --> TODO
@@ -230,5 +242,5 @@ def run_all():
     run_one(mesh_id)
 
 if __name__ == '__main__':
-  #run_all()
-  run_one(-1)
+  run_all()
+  #run_one(-1)
