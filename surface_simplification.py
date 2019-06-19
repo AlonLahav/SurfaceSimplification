@@ -141,8 +141,9 @@ def contract_best_pair(mesh):
       mesh['pair_heap'].remove(pair)
 
   # Update Q of vertex v1
-  #update_planes_parameters_near_vertex()         --> TODO
-  calc_Q_for_vertex(mesh, v1)
+  if CALC_OPTIMUM_NEW_POINT:
+    update_planes_parameters_near_vertex(mesh, v1)
+    calc_Q_for_vertex(mesh, v1)
 
   # add new pairs of the new vertex
   v2 = None
@@ -153,6 +154,10 @@ def contract_best_pair(mesh):
     vertices_are_very_close = ENABLE_NON_EDGE_CONTRACTION and np.linalg.norm(mesh['vertices'][v2] - mesh['vertices'][v1]) < CLOSE_DIST_TH
     if edge_connection or vertices_are_very_close:
       add_pair(mesh, v1, v2_, edge_connection)
+
+def update_planes_parameters_near_vertex(mesh, v):
+  # Get faces near v and recalculate their plane parameters
+  mesh_calc.calc_face_plane_parameters(mesh, must_recalc=True)
 
 def check_mesh(mesh):
   # Check that there is no duplicated face
@@ -310,5 +315,5 @@ def run_all():
 
 if __name__ == '__main__':
   #run_all()
-  run_bunny_many()
-  #run_one(0)
+  #run_bunny_many()
+  run_one(6)

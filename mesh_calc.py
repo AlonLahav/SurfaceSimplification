@@ -32,8 +32,8 @@ def calc_vf_adjacency_matrix(mesh, verbose=False):
     face = mesh['faces'][f_ind]
     mesh['vf_adjacency_matrix'][face, f_ind] = True
 
-def calc_face_normals(mesh, verbose=False):
-  if 'face_normals' in mesh.keys():
+def calc_face_normals(mesh, verbose=False, must_recalc=False):
+  if 'face_normals' in mesh.keys() and must_recalc == False:
     return
   if verbose:
     print('calc_face_normals')
@@ -43,12 +43,12 @@ def calc_face_normals(mesh, verbose=False):
   tmp = np.cross(v0 - v1, v1 - v2)
   mesh['face_normals'] = tmp / np.linalg.norm(tmp, axis=1, keepdims=True)
 
-def calc_face_plane_parameters(mesh, verbose=False):
-  if 'face_plane_parameters' in mesh.keys():
+def calc_face_plane_parameters(mesh, verbose=False, must_recalc=False):
+  if 'face_plane_parameters' in mesh.keys() and must_recalc == False:
     return
   if verbose:
     print('calc_face_plane_parameters')
-  calc_face_normals(mesh)
+  calc_face_normals(mesh, must_recalc=must_recalc)
   normals = mesh['face_normals']
   p0s = mesh['vertices'][mesh['faces'][:, 0]]
   ds = np.sum(-normals * p0s, axis=1)[:, None]
