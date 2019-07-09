@@ -239,6 +239,7 @@ def mesh_preprocess(mesh):
 
 def simplify_mesh(mesh_orig, n_vertices_to_merge):
   mesh = copy.deepcopy(mesh_orig)
+  tb = time.time()
   mesh_preprocess(mesh)
 
   mesh['pair_heap'] = []
@@ -249,12 +250,16 @@ def simplify_mesh(mesh_orig, n_vertices_to_merge):
   # Select pairs and add them to a heap
   select_vertex_pairs(mesh)
 
+  print('Init time:', time.time() - tb)
+
   # Take and contract pairs
+  tb = time.time()
   print('Simplifing Mesh')
   for _ in tqdm(range(n_vertices_to_merge)):
     contract_best_pair(mesh)
     if mesh['n_faces'] <= MINIMUM_NUMBER_OF_FACES:
       break
+  print('Iteration time:', time.time() - tb)
 
   # Remove old unused faces
   clean_mesh_from_removed_items(mesh)
@@ -290,9 +295,13 @@ def get_mesh(idx=0):
 
 def run_one(mesh_id=0, n_vertices_to_merge=None):
   mesh, n_vertices_to_merge_ = get_mesh(mesh_id)
+  tb = time.time()
   if n_vertices_to_merge is None:
     n_vertices_to_merge = n_vertices_to_merge_
   mesh_simplified = simplify_mesh(mesh, n_vertices_to_merge)
+  print('Number of faces in: ', mesh['n_faces'])
+  print('Number of faces after simplification: ', mesh_simplified['n_faces'])
+  print('Time: ', time.time() - tb)
   if not os.path.isdir('output_meshes'):
     os.makedirs('output_meshes')
   fn = 'output_meshes/' + mesh['name'].split('.')[0] + '_simplified_' + str(n_vertices_to_merge) + '.off'
@@ -316,4 +325,4 @@ def run_all():
 if __name__ == '__main__':
   #run_all()
   #run_bunny_many()
-  run_one(6)
+  run_one(4)
